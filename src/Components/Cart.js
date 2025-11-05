@@ -1,32 +1,77 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { getCart } from "../api/mockApi";
+import React, { useEffect, useState } from "react";
+import { getCart, removeFromCart, clearCart } from "../api/SmartCartApi";
 
-export default function Cart() {
+const Cart = () => {
   const [cart, setCart] = useState([]);
-  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const userId = "demoUser"; // Replace this with your real user ID or auth value later
 
+  // Load cart on first render
   useEffect(() => {
-    const isLoggedIn = localStorage.getItem("isLoggedIn");
-    if (!isLoggedIn) {
-      navigate("/login");
-    } else {
-      async function fetchCart() {
-        const items = await getCart();
-        setCart(items);
-      }
-      fetchCart();
-    }
-  }, [navigate]);
+    loadCart();
+  }, []);
 
+  // Function to load cart items from AWS API
+  const loadCart = async () => {
+    setLoading(true);
+    try {
+      const data = await getCart();
+      setCart(data.items || []);
+    } catch (error) {
+      console.error("Error loading cart:", error);
+      alert("Failed to fetch cart data. Please check your AWS setup or CORS settings.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to remove an item from cart
+  const handleRemove = async (productId) => {
+    try {
+      await removeFromCart(userId, productId);
+      loadCart(); // reload after removing
+    } catch (error) {
+      console.error("Error removing item:", error);
+      alert("Failed to remove item from cart.");
+    }
+  };
+
+  // Function to clear the cart
+  const handleClear = async () => {
+    try {
+      await clearCart(userId);
+      setCart([]);
+    } catch (error) {
+      console.error("Error clearing cart:", error);
+      alert("Failed to clear cart.");
+    }
+  };
+
+  // UI rendering
   return (
-    <div style={{ padding: "20px" }}>
+    <div className="cart-container">
       <h2>Your Cart</h2>
-      {cart.map((item) => (
-        <div key={item.id}>
-          {item.name} - ${item.price}
-        </div>
-      ))}
+
+      {loading ? (
+        <p>Loading your cart...</p>
+      ) : cart.length === 0 ? (
+        <p>Cart is empty</p>
+      ) : (
+        <ul>
+          {cart.map((item) => (
+            <li key={item.id}>
+              {item.name} — ${item.price}
+              <button onClick={() => handleRemove(item.id)}>Remove</button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <button onClick={handleClear} disabled={cart.length === 0}>
+        Clear Cart
+      </button>
     </div>
   );
-}
+};
+
+export default Cart;
